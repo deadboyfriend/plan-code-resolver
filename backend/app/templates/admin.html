@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plan Code Resolver — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header .badge {
+      background: #3a86ff;
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: 14px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: #64748b; margin-bottom: 16px;
+    }
+
+    /* Status panel */
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat { background: #f8fafc; border-radius: 6px; padding: 12px; }
+    .stat .label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+    .stat .value { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
+    .stat.wide { grid-column: 1 / -1; }
+    .stat.wide .value { font-size: 13px; font-weight: 500; font-family: monospace; word-break: break-all; }
+
+    /* Version block */
+    .version-block {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .version-block h3 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: #64748b; margin-bottom: 10px;
+    }
+
+    /* Upload section */
+    .upload-section {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .upload-section h3 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: #64748b; margin-bottom: 10px;
+    }
+    .upload-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .upload-row input[type="file"] {
+      font-size: 12px; flex: 1; min-width: 0;
+      border: 1px solid #cbd5e1; border-radius: 5px;
+      padding: 5px 8px; background: #f8fafc; cursor: pointer;
+    }
+    .upload-feedback { margin-top: 8px; font-size: 12px; display: none; }
+    .upload-feedback.success { color: #166534; }
+    .upload-feedback.error   { color: #991b1b; }
+
+    /* Lookup form */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 500px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+    .field select {
+      width: 100%; padding: 7px 10px;
+      border: 1px solid #cbd5e1; border-radius: 5px;
+      font-size: 13px; font-family: monospace;
+      background: #f8fafc; cursor: pointer;
+      appearance: none;
+      transition: border-color .15s;
+    }
+    .field select:focus { outline: none; border-color: #3a86ff; background: #fff; }
+
+    .btn {
+      margin-top: 14px; padding: 9px 20px;
+      background: #3a86ff; color: #fff;
+      border: none; border-radius: 5px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-sm {
+      padding: 5px 12px; font-size: 12px; font-weight: 500;
+      background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+      border-radius: 4px; cursor: pointer; transition: background .15s;
+    }
+    .btn-sm:hover { background: #e2e8f0; }
+    .btn-upload {
+      padding: 6px 14px; font-size: 12px; font-weight: 600;
+      background: #3a86ff; color: #fff; border: none;
+      border-radius: 5px; cursor: pointer; transition: background .15s;
+      white-space: nowrap;
+    }
+    .btn-upload:hover { background: #2563eb; }
+    .btn-upload:disabled { background: #93c5fd; cursor: not-allowed; }
+
+    .result-box { margin-top: 14px; padding: 14px 16px; border-radius: 6px; display: none; }
+    .result-box.success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; display: block; }
+    .result-box.error   { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; display: block; }
+    .result-box .plancode { font-size: 32px; font-weight: 800; font-family: monospace; letter-spacing: .1em; }
+    .result-box .sub { font-size: 12px; margin-top: 2px; opacity: .75; }
+
+    /* Browse table */
+    .table-controls {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .table-controls input {
+      padding: 6px 10px; border: 1px solid #cbd5e1;
+      border-radius: 5px; font-size: 13px; flex: 1; min-width: 160px;
+    }
+    .table-controls input:focus { outline: none; border-color: #3a86ff; }
+    .page-info { font-size: 12px; color: #64748b; white-space: nowrap; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      background: #f1f5f9; color: #475569; font-weight: 600;
+      padding: 8px 10px; text-align: left;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap; position: sticky; top: 0;
+    }
+    td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; font-family: monospace; }
+    tr:hover td { background: #f8fafc; }
+    td.plancode-cell { font-weight: 700; color: #1e40af; font-size: 13px; letter-spacing: .05em; }
+
+    .pagination { display: flex; align-items: center; gap: 6px; margin-top: 12px; justify-content: flex-end; }
+    .pg-btn {
+      padding: 4px 10px; font-size: 12px;
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 4px; cursor: pointer;
+    }
+    .pg-btn:hover:not(:disabled) { background: #f1f5f9; }
+    .pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .pg-btn.active { background: #3a86ff; color: #fff; border-color: #3a86ff; }
+
+    .loading { color: #94a3b8; font-size: 13px; padding: 20px; text-align: center; }
+    .empty   { color: #94a3b8; font-size: 13px; padding: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Plan Code Resolver</h1>
+  <span class="badge">Admin</span>
+</header>
+
+<div class="container">
+
+  <div class="grid">
+
+    <!-- ── Status Card ──────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>CSV Status</h2>
+      <div class="status-grid">
+        <div class="stat">
+          <div class="label">Rows Loaded</div>
+          <div class="value" id="stat-rows">{{ row_count }}</div>
+        </div>
+        <div class="stat">
+          <div class="label">File Size</div>
+          <div class="value" id="stat-size">{{ file_size_kb }} KB</div>
+        </div>
+        <div class="stat wide">
+          <div class="label">Filename</div>
+          <div class="value" id="stat-file">{{ filename }}</div>
+        </div>
+        <div class="stat wide">
+          <div class="label">Loaded At (UTC)</div>
+          <div class="value" id="stat-time">{{ loaded_at }}</div>
+        </div>
+      </div>
+
+      <!-- Version info -->
+      <div class="version-block">
+        <h3>File Version</h3>
+        <div class="status-grid">
+          <div class="stat">
+            <div class="label">Version</div>
+            <div class="value" id="ver-number">—</div>
+          </div>
+          <div class="stat">
+            <div class="label">Effective Date</div>
+            <div class="value" id="ver-effective">—</div>
+          </div>
+          <div class="stat wide">
+            <div class="label">Author</div>
+            <div class="value" id="ver-author">—</div>
+          </div>
+          <div class="stat wide">
+            <div class="label">Change Notes</div>
+            <div class="value" id="ver-description">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="upload-section">
+        <h3>Upload New File</h3>
+        <form id="upload-form">
+          <div class="upload-row">
+            <input type="file" id="upload-file" accept=".xlsx" />
+            <button type="submit" class="btn-upload" id="upload-btn">Upload</button>
+          </div>
+          <div class="upload-feedback" id="upload-feedback"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Lookup Card ──────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Lookup Plancode</h2>
+      <form id="lookup-form">
+        <div class="form-grid">
+          <div class="field">
+            <label>underwriting</label>
+            <select name="underwriting" id="sel-underwriting"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>reduced_op</label>
+            <select name="reduced_op" id="sel-reduced_op"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>gp_referal</label>
+            <select name="gp_referal" id="sel-gp_referal"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>optden</label>
+            <select name="optden" id="sel-optden"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>psych</label>
+            <select name="psych" id="sel-psych"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>excess</label>
+            <select name="excess" id="sel-excess"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>sixweek</label>
+            <select name="sixweek" id="sel-sixweek"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>reduced_bens</label>
+            <select name="reduced_bens" id="sel-reduced_bens"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>hospital_list</label>
+            <select name="hospital_list" id="sel-hospital_list"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>non_mainland</label>
+            <select name="non_mainland" id="sel-non_mainland"><option value="">— loading —</option></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button type="submit" class="btn" id="lookup-btn">Lookup</button>
+          <button type="button" class="btn-sm" id="clear-btn">Clear</button>
+        </div>
+      </form>
+      <div class="result-box" id="result-box">
+        <div class="plancode" id="result-plancode"></div>
+        <div class="sub" id="result-sub"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Browse All Mappings ────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>All Mappings</h2>
+    <div class="table-controls">
+      <input type="search" id="filter-input" placeholder="Filter by any value..." />
+      <span class="page-info" id="page-info"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="mappings-table">
+        <thead>
+          <tr>
+            <th>Plancode</th>
+            <th>underwriting</th>
+            <th>reduced_op</th>
+            <th>gp_referal</th>
+            <th>optden</th>
+            <th>psych</th>
+            <th>excess</th>
+            <th>sixweek</th>
+            <th>reduced_bens</th>
+            <th>hospital_list</th>
+            <th>non_mainland</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="11" class="loading">Loading mappings...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination" style="margin-top:12px;"></div>
+  </div>
+
+</div>
+
+<script>
+  const PAGE_SIZE = 50;
+  const FIELDS = ["plancode","underwriting","reduced_op","gp_referal","optden","psych","excess","sixweek","reduced_bens","hospital_list","non_mainland"];
+  const LOOKUP_FIELDS = FIELDS.slice(1);
+
+  let allRows = [];
+  let filteredRows = [];
+  let currentPage = 1;
+
+  // ── Status refresh ────────────────────────────────────────────────────────
+  async function refreshStatus() {
+    try {
+      const res = await fetch('/api/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById('stat-rows').textContent     = d.row_count ?? '—';
+      document.getElementById('stat-size').textContent     = (d.file_size_kb ?? '—') + ' KB';
+      document.getElementById('stat-file').textContent     = d.filename ?? '—';
+      document.getElementById('stat-time').textContent     = d.loaded_at ?? '—';
+      const v = d.version_info || {};
+      document.getElementById('ver-number').textContent      = v.version       || '—';
+      document.getElementById('ver-effective').textContent   = v.effective_date || '—';
+      document.getElementById('ver-author').textContent      = v.author         || '—';
+      document.getElementById('ver-description').textContent = v.description    || '—';
+    } catch (e) {
+      console.warn('Failed to refresh status:', e.message);
+    }
+  }
+
+  // ── Field values → dropdowns ──────────────────────────────────────────────
+  async function loadFieldValues() {
+    try {
+      const res = await fetch('/api/field-values');
+      if (!res.ok) return;
+      const data = await res.json();
+      LOOKUP_FIELDS.forEach(field => {
+        const sel = document.getElementById('sel-' + field);
+        if (!sel) return;
+        const current = sel.value;
+        const vals = data[field] || [];
+        sel.innerHTML = '<option value="">— select —</option>';
+        vals.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v === '' ? '(empty)' : v;
+          sel.appendChild(opt);
+        });
+        // restore selection if still valid after reload
+        if (vals.includes(current)) sel.value = current;
+      });
+    } catch (e) {
+      console.warn('Failed to load field values:', e.message);
+      LOOKUP_FIELDS.forEach(field => {
+        const sel = document.getElementById('sel-' + field);
+        if (sel) sel.innerHTML = '<option value="">— unavailable —</option>';
+      });
+    }
+  }
+
+  // ── Browse table ──────────────────────────────────────────────────────────
+  async function loadMappings() {
+    try {
+      const res = await fetch('/api/mappings');
+      const data = await res.json();
+      allRows = data.rows || [];
+      filteredRows = allRows;
+      currentPage = 1;
+      renderTable();
+    } catch (e) {
+      document.getElementById('table-body').innerHTML =
+        `<tr><td colspan="11" class="empty">Failed to load mappings: ${e.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('filter-input').addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    filteredRows = q
+      ? allRows.filter(r => FIELDS.some(f => (r[f] || '').toLowerCase().includes(q)))
+      : allRows;
+    currentPage = 1;
+    renderTable();
+  });
+
+  function renderTable() {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page  = filteredRows.slice(start, start + PAGE_SIZE);
+    const tbody = document.getElementById('table-body');
+
+    if (page.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching rows.</td></tr>';
+    } else {
+      tbody.innerHTML = page.map(row => `
+        <tr>
+          <td class="plancode-cell">${esc(row.plancode)}</td>
+          ${LOOKUP_FIELDS.map(f => `<td>${esc(row[f] || '')}</td>`).join('')}
+        </tr>`).join('');
+    }
+
+    const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
+    document.getElementById('page-info').textContent =
+      `${filteredRows.length.toLocaleString()} rows — page ${currentPage} of ${totalPages || 1}`;
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages) {
+    const el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    const pages = getPageNumbers(currentPage, totalPages);
+    el.innerHTML = [
+      `<button class="pg-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goPage(${currentPage - 1})">&#8249;</button>`,
+      ...pages.map(p => p === '…'
+        ? `<span style="padding:4px 6px;color:#94a3b8">…</span>`
+        : `<button class="pg-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`
+      ),
+      `<button class="pg-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goPage(${currentPage + 1})">&#8250;</button>`,
+    ].join('');
+  }
+
+  function getPageNumbers(cur, total) {
+    if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+    if (cur <= 4)        return [1, 2, 3, 4, 5, '…', total];
+    if (cur >= total-3)  return [1, '…', total-4, total-3, total-2, total-1, total];
+    return [1, '…', cur-1, cur, cur+1, '…', total];
+  }
+
+  function goPage(p) {
+    currentPage = p;
+    renderTable();
+    document.querySelector('.card:last-child').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // ── Lookup form ───────────────────────────────────────────────────────────
+  document.getElementById('lookup-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn = document.getElementById('lookup-btn');
+    const box = document.getElementById('result-box');
+    btn.disabled = true;
+    btn.textContent = 'Looking up…';
+    box.className = 'result-box';
+
+    const body = {};
+    new FormData(this).forEach((v, k) => body[k] = v);
+
+    try {
+      const res = await fetch('/api/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        box.className = 'result-box success';
+        document.getElementById('result-plancode').textContent = data.plancode;
+        document.getElementById('result-sub').textContent = 'Plancode found';
+      } else if (res.status === 422 && Array.isArray(data.detail)) {
+        box.className = 'result-box error';
+        document.getElementById('result-plancode').textContent = '—';
+        const msgs = data.detail.map(e => `${e.field}: "${e.input}" not in [${e.allowed.map(v => v===''?'(empty)':v).join(', ')}]`);
+        document.getElementById('result-sub').textContent = 'Invalid values: ' + msgs.join('; ');
+      } else {
+        box.className = 'result-box error';
+        document.getElementById('result-plancode').textContent = '—';
+        document.getElementById('result-sub').textContent = (typeof data.detail === 'string' ? data.detail : null) || 'No matching plancode found';
+      }
+    } catch (err) {
+      box.className = 'result-box error';
+      document.getElementById('result-plancode').textContent = '—';
+      document.getElementById('result-sub').textContent = 'Request failed: ' + err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Lookup';
+    }
+  });
+
+  document.getElementById('clear-btn').addEventListener('click', function () {
+    document.getElementById('lookup-form').reset();
+    document.getElementById('result-box').className = 'result-box';
+  });
+
+  // ── Upload form ───────────────────────────────────────────────────────────
+  document.getElementById('upload-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('upload-file');
+    const feedback  = document.getElementById('upload-feedback');
+    const btn       = document.getElementById('upload-btn');
+
+    if (!fileInput.files.length) {
+      feedback.className = 'upload-feedback error';
+      feedback.style.display = 'block';
+      feedback.textContent = 'Please select a .xlsx file first.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    feedback.className = 'upload-feedback';
+    feedback.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+      const res  = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        feedback.className = 'upload-feedback success';
+        const ver = data.version_info?.version || '?';
+        feedback.textContent = `Uploaded successfully. ${data.row_count} rows loaded (v${ver}).`;
+        fileInput.value = '';
+        await refreshStatus();
+        await loadFieldValues();
+        await loadMappings();
+      } else {
+        feedback.className = 'upload-feedback error';
+        feedback.textContent = data.detail || 'Upload failed.';
+      }
+    } catch (err) {
+      feedback.className = 'upload-feedback error';
+      feedback.textContent = 'Request failed: ' + err.message;
+    } finally {
+      feedback.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Upload';
+    }
+  });
+
+  // ── Utilities ─────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  refreshStatus();
+  loadFieldValues();
+  loadMappings();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+services:
+  plan-code-resolver:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: plan-code-resolver
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    environment:
+      DATA_FILE: /app/data/plancode_mappings.xlsx
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

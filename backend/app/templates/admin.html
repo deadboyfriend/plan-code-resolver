@@ -469,44 +469,48 @@
       <form id="lookup-form">
         <div class="form-grid">
           <div class="field">
-            <label>underwriting</label>
+            <label>Underwriting</label>
             <select name="underwriting" id="sel-underwriting"><option value="">— loading —</option></select>
           </div>
           <div class="field">
-            <label>reduced_op</label>
-            <select name="reduced_op" id="sel-reduced_op"><option value="">— loading —</option></select>
+            <label>Core Cover</label>
+            <select name="corecover" id="sel-corecover"><option value="">— loading —</option></select>
           </div>
           <div class="field">
-            <label>gp_referal</label>
-            <select name="gp_referal" id="sel-gp_referal"><option value="">— loading —</option></select>
-          </div>
-          <div class="field">
-            <label>optden</label>
-            <select name="optden" id="sel-optden"><option value="">— loading —</option></select>
-          </div>
-          <div class="field">
-            <label>psych</label>
+            <label>Psych Cover</label>
             <select name="psych" id="sel-psych"><option value="">— loading —</option></select>
           </div>
           <div class="field">
-            <label>excess</label>
-            <select name="excess" id="sel-excess"><option value="">— loading —</option></select>
+            <label>GP Preferred</label>
+            <select name="gpreferred" id="sel-gpreferred"><option value="">— loading —</option></select>
           </div>
           <div class="field">
-            <label>sixweek</label>
-            <select name="sixweek" id="sel-sixweek"><option value="">— loading —</option></select>
-          </div>
-          <div class="field">
-            <label>reduced_bens</label>
-            <select name="reduced_bens" id="sel-reduced_bens"><option value="">— loading —</option></select>
-          </div>
-          <div class="field">
-            <label>hospital_list</label>
+            <label>Hospital List</label>
             <select name="hospital_list" id="sel-hospital_list"><option value="">— loading —</option></select>
           </div>
           <div class="field">
-            <label>non_mainland</label>
-            <select name="non_mainland" id="sel-non_mainland"><option value="">— loading —</option></select>
+            <label>Optical &amp; Dental</label>
+            <select name="opticaldental" id="sel-opticaldental"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>6-Week Wait</label>
+            <select name="6week" id="sel-6week"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>Excess</label>
+            <select name="excess" id="sel-excess"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>Benefit Reduction</label>
+            <select name="benefitreduction" id="sel-benefitreduction"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>OP Limit</label>
+            <select name="oplimit" id="sel-oplimit"><option value="">— loading —</option></select>
+          </div>
+          <div class="field">
+            <label>Islands</label>
+            <select name="islands" id="sel-islands"><option value="">— loading —</option></select>
           </div>
         </div>
 
@@ -519,6 +523,10 @@
           <div>
             <div class="result-plancode" id="result-plancode"></div>
             <div class="result-sub" id="result-sub"></div>
+          </div>
+          <div style="margin-left:24px;border-left:2px solid #9BD7DD;padding-left:20px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ion-neutral-700);margin-bottom:4px">Dalecode</div>
+            <div style="font-size:15px;font-weight:600;font-family:monospace;color:var(--ion-blue-800)" id="result-dalecode"></div>
           </div>
         </div>
       </form>
@@ -538,20 +546,22 @@
           <thead>
             <tr>
               <th>Plancode</th>
-              <th>underwriting</th>
-              <th>reduced_op</th>
-              <th>gp_referal</th>
-              <th>optden</th>
-              <th>psych</th>
-              <th>excess</th>
-              <th>sixweek</th>
-              <th>reduced_bens</th>
-              <th>hospital_list</th>
-              <th>non_mainland</th>
+              <th>Dalecode</th>
+              <th>Underwriting</th>
+              <th>Core Cover</th>
+              <th>Psych</th>
+              <th>GP Preferred</th>
+              <th>Hospital List</th>
+              <th>Optical &amp; Dental</th>
+              <th>6-Week</th>
+              <th>Excess</th>
+              <th>Benefit Reduction</th>
+              <th>OP Limit</th>
+              <th>Islands</th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr><td colspan="11" class="loading">Loading mappings…</td></tr>
+            <tr><td colspan="13" class="loading">Loading mappings…</td></tr>
           </tbody>
         </table>
       </div>
@@ -563,8 +573,8 @@
 
 <script>
   const PAGE_SIZE = 50;
-  const FIELDS = ["plancode","underwriting","reduced_op","gp_referal","optden","psych","excess","sixweek","reduced_bens","hospital_list","non_mainland"];
-  const LOOKUP_FIELDS = FIELDS.slice(1);
+  const FIELDS = ["plancode","dalecode","underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","6week","excess","benefitreduction","oplimit","islands"];
+  const LOOKUP_FIELDS = ["underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","6week","excess","benefitreduction","oplimit","islands"];
 
   let allRows = [];
   let filteredRows = [];
@@ -617,15 +627,16 @@
         const sel = document.getElementById('sel-' + field);
         if (!sel) return;
         const current = sel.value;
-        const vals = data[field] || [];
+        const items = data[field] || [];
         sel.innerHTML = '<option value="">— select —</option>';
-        vals.forEach(v => {
+        items.forEach(item => {
           const opt = document.createElement('option');
-          opt.value = v;
-          opt.textContent = v === '' ? '(empty)' : v;
+          opt.value = item.value;                          // submit the code value
+          opt.textContent = item.label || item.value;     // display the human label
           sel.appendChild(opt);
         });
-        if (vals.includes(current)) sel.value = current;
+        const currentStillValid = items.some(i => i.value === current);
+        if (currentStillValid) sel.value = current;
       });
     } catch (e) {
       console.warn('Failed to load field values:', e.message);
@@ -666,7 +677,7 @@
     const tbody = document.getElementById('table-body');
 
     if (page.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching rows.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="13" class="empty">No matching rows.</td></tr>';
     } else {
       tbody.innerHTML = page.map(row => `
         <tr>
@@ -731,6 +742,7 @@
         box.className = 'result-box success';
         document.getElementById('result-plancode').textContent = data.plancode;
         document.getElementById('result-sub').textContent = 'Plancode found';
+        document.getElementById('result-dalecode').textContent = data.dalecode || '';
       } else if (res.status === 422 && Array.isArray(data.detail)) {
         box.className = 'result-box error';
         document.getElementById('result-plancode').textContent = '—';

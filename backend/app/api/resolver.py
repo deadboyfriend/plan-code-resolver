@@ -1,7 +1,7 @@
 import os
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -12,45 +12,35 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
-class ResolveRequest(BaseModel):
-    underwriting: str
-    reduced_op: str
-    gp_referal: str
-    optden: str
-    psych: str
-    excess: str
-    sixweek: str
-    reduced_bens: str
-    hospital_list: str
-    non_mainland: str
-
-
 class ResolveResponse(BaseModel):
     plancode: str
+    dalecode: str
     inputs: dict
 
 
 # ── Resolver ──────────────────────────────────────────────────────────────────
 
-@router.post("/api/resolve", response_model=ResolveResponse, tags=["Resolver"])
-def resolve_plancode(req: ResolveRequest):
-    """Resolve a set of benefit configuration values to a plancode."""
-    inputs = req.model_dump()
+@router.post("/api/resolve", tags=["Resolver"])
+async def resolve_plancode(request: Request):
+    """Resolve a set of benefit option values to a plancode + dalecode."""
+    inputs: dict = await request.json()
 
-    # Validate inputs against allowed field values (skip fields not in values sheet)
+    # Validate each submitted value against the allowed values for that field
     field_values = csv_loader.get_field_values()
     if field_values:
         errors = []
         for field, value in inputs.items():
-            if value == "":  # unselected / null — always valid, matches empty cells in lookup
+            if value == "":
                 continue
-            allowed = field_values.get(field)
-            if allowed is not None and value not in allowed:
-                errors.append({
-                    "field": field,
-                    "input": value,
-                    "allowed": allowed,
-                })
+            options = field_values.get(field)
+            if options is not None:
+                allowed_vals = [opt["value"] for opt in options]
+                if value not in allowed_vals:
+                    errors.append({
+                        "field": field,
+                        "input": value,
+                        "allowed": allowed_vals,
+                    })
         if errors:
             raise HTTPException(status_code=422, detail=errors)
 
@@ -60,14 +50,19 @@ def resolve_plancode(req: ResolveRequest):
             status_code=404,
             detail="No matching plancode found for the given inputs.",
         )
-    return {"plancode": plancode, "inputs": inputs}
+
+    # Derive the dalecode from the resolved row
+    from app.services.csv_loader import FIELDS
+    dalecode = "".join(str(inputs.get(f, "")) for f in FIELDS)
+
+    return {"plancode": plancode, "dalecode": dalecode, "inputs": inputs}
 
 
 # ── Read endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/api/field-values", tags=["Resolver"])
 def get_field_values():
-    """Return valid options per field for use in dropdowns."""
+    """Return valid options per field: {field: [{value, label}, ...]}"""
     return csv_loader.get_field_values()
 
 
@@ -117,7 +112,7 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         with open(tmp_path, "wb") as f:
             f.write(content)
-        os.replace(tmp_path, data_path)  # atomic on same filesystem
+        os.replace(tmp_path, data_path)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {exc}") from exc
 

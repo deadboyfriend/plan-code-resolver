@@ -9,25 +9,31 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Fields used to build the lookup key — must match column names in the mappings sheet.
+# "dalecode" and "plancode" are NOT included: dalecode is derived, plancode is the result.
 FIELDS = [
     "underwriting",
-    "reduced_op",
-    "gp_referal",
-    "optden",
+    "corecover",
     "psych",
-    "excess",
-    "sixweek",
-    "reduced_bens",
+    "gpreferred",
     "hospital_list",
-    "non_mainland",
+    "opticaldental",
+    "6week",
+    "excess",
+    "benefitreduction",
+    "oplimit",
+    "islands",
 ]
 
-# ── Thread-safe state ─────────────────────────────────────────────────────────
-# All five data structures are held in a single dict reference.
-# load() builds a completely new dict locally, then swaps _state in one
-# assignment under the lock. Readers call _get_state() — one attribute
-# read — and never need to hold the lock.
+# Normalise field names coming from the values sheet (handle typos / casing differences)
+FIELD_NAME_MAP = {
+    "hostptal_list": "hospital_list",   # typo in spreadsheet
+    "Islands":       "islands",
+    "6Week":         "6week",
+    "6WEEK":         "6week",
+}
 
+# ── Thread-safe state ─────────────────────────────────────────────────────────
 _STATE_LOCK = threading.Lock()
 _state: dict = {
     "lookup": {},
@@ -46,7 +52,7 @@ def _get_state() -> dict:
 
 def load() -> None:
     """
-    Load (or reload) all three sheets from the xlsx file into memory.
+    Load (or reload) all sheets from the xlsx file into memory.
     Thread-safe: builds new state locally, then atomically swaps _state.
     """
     global _state
@@ -62,10 +68,13 @@ def load() -> None:
 
     # ── Sheet: mappings ───────────────────────────────────────────────────────
     ws_map = wb["mappings"]
-    headers = [str(cell.value).strip() if cell.value is not None else ""
-               for cell in next(ws_map.iter_rows(min_row=1, max_row=1))]
+    headers = [
+        str(cell.value).strip() if cell.value is not None else ""
+        for cell in next(ws_map.iter_rows(min_row=1, max_row=1))
+    ]
     lookup: dict[tuple, str] = {}
     rows: list[dict] = []
+
     for row in ws_map.iter_rows(min_row=2, values_only=True):
         if all(v is None for v in row):
             continue
@@ -74,27 +83,35 @@ def load() -> None:
         lookup[key] = d.get("plancode", "").strip()
         rows.append(d)
 
-    # ── Sheet: values ─────────────────────────────────────────────────────────
-    # Wide format: col A = field name, cols B+ = valid values.
-    # Stop at first None in value columns; blank cell (empty string) is a valid value.
+    # ── Sheet: values (long format: field | value | label) ────────────────────
     ws_val = wb["values"]
-    field_values: dict[str, list[str]] = {}
+    field_values: dict[str, list[dict]] = {}
+
     for row in ws_val.iter_rows(min_row=2, values_only=True):
-        if row[0] is None:
+        if not row or row[0] is None:
             continue
-        field_name = str(row[0]).strip()
-        vals: list[str] = []
-        for v in row[1:]:
-            if v is None:
-                break  # trailing None = no more columns
-            vals.append(str(v).strip())  # blank cell → ""
-        field_values[field_name] = vals
+        raw_field = str(row[0]).strip()
+        field_name = FIELD_NAME_MAP.get(raw_field, raw_field)
+
+        value = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
+        label = str(row[2]).strip() if len(row) > 2 and row[2] is not None else value
+
+        if not value:
+            continue
+
+        if field_name not in field_values:
+            field_values[field_name] = []
+
+        # Deduplicate by value — keeps first occurrence
+        if not any(item["value"] == value for item in field_values[field_name]):
+            field_values[field_name].append({"value": value, "label": label or value})
 
     # ── Sheet: version ────────────────────────────────────────────────────────
-    # Last non-empty data row = current version.
     ws_ver = wb["version"]
-    ver_headers = [str(cell.value).strip() if cell.value is not None else ""
-                   for cell in next(ws_ver.iter_rows(min_row=1, max_row=1))]
+    ver_headers = [
+        str(cell.value).strip() if cell.value is not None else ""
+        for cell in next(ws_ver.iter_rows(min_row=1, max_row=1))
+    ]
     version_info: dict = {}
     for row in ws_ver.iter_rows(min_row=2, values_only=True):
         if any(v is not None for v in row):
@@ -130,6 +147,7 @@ def load() -> None:
 # ── Public accessors ──────────────────────────────────────────────────────────
 
 def resolve(inputs: dict) -> str | None:
+    """Look up a plancode from a dict of field → value."""
     key = tuple(str(inputs.get(f, "")).strip() for f in FIELDS)
     return _get_state()["lookup"].get(key)
 
@@ -142,7 +160,8 @@ def get_load_info() -> dict:
     return _get_state()["load_info"]
 
 
-def get_field_values() -> dict[str, list[str]]:
+def get_field_values() -> dict[str, list[dict]]:
+    """Returns {field: [{value, label}, ...]} for all fields in the values sheet."""
     return _get_state()["field_values"]
 
 

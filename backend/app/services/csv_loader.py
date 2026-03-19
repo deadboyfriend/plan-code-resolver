@@ -18,7 +18,7 @@ FIELDS = [
     "gpreferred",
     "hospital_list",
     "opticaldental",
-    "6week",
+    "sixweek",
     "excess",
     "benefitreduction",
     "oplimit",
@@ -29,8 +29,8 @@ FIELDS = [
 FIELD_NAME_MAP = {
     "hostptal_list": "hospital_list",   # typo in spreadsheet
     "Islands":       "islands",
-    "6Week":         "6week",
-    "6WEEK":         "6week",
+    "6Week":         "sixweek",
+    "6WEEK":         "sixweek",
 }
 
 # ── Thread-safe state ─────────────────────────────────────────────────────────

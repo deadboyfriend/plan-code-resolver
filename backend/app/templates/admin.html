@@ -594,7 +594,7 @@
           </div>
           <div class="field">
             <label>6-Week Wait</label>
-            <select name="6week" id="sel-6week"><option value="">— loading —</option></select>
+            <select name="sixweek" id="sel-sixweek"><option value="">— loading —</option></select>
           </div>
           <div class="field">
             <label>Excess</label>
@@ -698,8 +698,8 @@
 
 <script>
   const PAGE_SIZE = 50;
-  const FIELDS = ["plancode","dalecode","underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","6week","excess","benefitreduction","oplimit","islands"];
-  const LOOKUP_FIELDS = ["underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","6week","excess","benefitreduction","oplimit","islands"];
+  const FIELDS = ["plancode","dalecode","underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","sixweek","excess","benefitreduction","oplimit","islands"];
+  const LOOKUP_FIELDS = ["underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","sixweek","excess","benefitreduction","oplimit","islands"];
 
   let allRows = [];
   let filteredRows = [];
@@ -947,7 +947,7 @@
     gpreferred:      'GP Preferred',
     hospital_list:   'Hospital List',
     opticaldental:   'Optical & Dental',
-    '6week':         '6-Week Wait',
+    sixweek:         '6-Week Wait',
     excess:          'Excess',
     benefitreduction:'Benefit Reduction',
     oplimit:         'OP Limit',

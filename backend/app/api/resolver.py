@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services import csv_loader
@@ -19,7 +19,6 @@ templates = Jinja2Templates(directory="app/templates")
 class ResolveRequest(BaseModel):
     """Benefit option values to resolve to a plancode.
     All field values should be the code values (e.g. '1a', 'NMORI') not labels."""
-    model_config = ConfigDict(populate_by_name=True)
 
     underwriting:    str = Field(..., examples=["NMORI"])
     corecover:       str = Field(..., examples=["Y"])
@@ -27,7 +26,7 @@ class ResolveRequest(BaseModel):
     gpreferred:      str = Field(..., examples=["2a"])
     hospital_list:   str = Field(..., examples=["3a"])
     opticaldental:   str = Field(..., examples=["4a"])
-    six_week:        str = Field(..., alias="6week", examples=["5a"])
+    sixweek:         str = Field(..., examples=["5a"])
     excess:          str = Field(..., examples=["6a"])
     benefitreduction:str = Field(..., examples=["7a"])
     oplimit:         str = Field(..., examples=["8a"])
@@ -74,7 +73,7 @@ def resolve_plancode(req: ResolveRequest):
     (e.g. `"1a"`, `"NMORI"`) — not the human-readable labels.
     """
     # model_dump with by_alias=True gives us the "6week" key the lookup expects
-    inputs = req.model_dump(by_alias=True)
+    inputs = req.model_dump()
 
     # Validate each value against the allowed set for its field
     field_values = csv_loader.get_field_values()

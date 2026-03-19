@@ -807,6 +807,7 @@
       tbody.innerHTML = page.map(row => `
         <tr>
           <td class="plancode-cell">${esc(row.plancode)}</td>
+          <td style="font-family:monospace;font-size:12px;color:var(--ion-neutral-700)">${esc(row.dalecode || '')}</td>
           ${LOOKUP_FIELDS.map(f => `<td>${esc(row[f] || '')}</td>`).join('')}
         </tr>`).join('');
     }

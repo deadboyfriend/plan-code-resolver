@@ -1,31 +1,82 @@
 import os
+from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import settings
 from app.services import csv_loader
+from app.services.csv_loader import FIELDS
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+# ── Request / Response models ─────────────────────────────────────────────────
+
+class ResolveRequest(BaseModel):
+    """Benefit option values to resolve to a plancode.
+    All field values should be the code values (e.g. '1a', 'NMORI') not labels."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    underwriting:    str = Field(..., examples=["NMORI"])
+    corecover:       str = Field(..., examples=["Y"])
+    psych:           str = Field(..., examples=["1a"])
+    gpreferred:      str = Field(..., examples=["2a"])
+    hospital_list:   str = Field(..., examples=["3a"])
+    opticaldental:   str = Field(..., examples=["4a"])
+    six_week:        str = Field(..., alias="6week", examples=["5a"])
+    excess:          str = Field(..., examples=["6a"])
+    benefitreduction:str = Field(..., examples=["7a"])
+    oplimit:         str = Field(..., examples=["8a"])
+    islands:         str = Field(..., examples=["9a"])
+
+
 class ResolveResponse(BaseModel):
     plancode: str
+    dalecode:  str
+    inputs:   dict
+
+
+class DalecodeLookupRequest(BaseModel):
+    """A dalecode string to deconstruct back into field values and resolve to a plancode."""
+    dalecode: str = Field(..., examples=["NMORIY1a2a3a4a5a6a7a8a9a"])
+
+
+class DecodedField(BaseModel):
+    field: str
+    value: str
+    label: str
+
+
+class DalecodeLookupResponse(BaseModel):
     dalecode: str
-    inputs: dict
+    plancode: str
+    fields:   list[DecodedField]
 
 
 # ── Resolver ──────────────────────────────────────────────────────────────────
 
-@router.post("/api/resolve", tags=["Resolver"])
-async def resolve_plancode(request: Request):
-    """Resolve a set of benefit option values to a plancode + dalecode."""
-    inputs: dict = await request.json()
+@router.post(
+    "/api/resolve",
+    response_model=ResolveResponse,
+    tags=["Resolver"],
+    summary="Resolve benefit options to a plancode",
+)
+def resolve_plancode(req: ResolveRequest):
+    """
+    Submit all 11 benefit option **code values** to receive the matching plancode
+    and its derived dalecode.
 
-    # Validate each submitted value against the allowed values for that field
+    Values must exactly match the codes in the `/api/field-values` response
+    (e.g. `"1a"`, `"NMORI"`) — not the human-readable labels.
+    """
+    # model_dump with by_alias=True gives us the "6week" key the lookup expects
+    inputs = req.model_dump(by_alias=True)
+
+    # Validate each value against the allowed set for its field
     field_values = csv_loader.get_field_values()
     if field_values:
         errors = []
@@ -36,38 +87,35 @@ async def resolve_plancode(request: Request):
             if options is not None:
                 allowed_vals = [opt["value"] for opt in options]
                 if value not in allowed_vals:
-                    errors.append({
-                        "field": field,
-                        "input": value,
-                        "allowed": allowed_vals,
-                    })
+                    errors.append({"field": field, "input": value, "allowed": allowed_vals})
         if errors:
             raise HTTPException(status_code=422, detail=errors)
 
     plancode = csv_loader.resolve(inputs)
     if not plancode:
-        raise HTTPException(
-            status_code=404,
-            detail="No matching plancode found for the given inputs.",
-        )
+        raise HTTPException(status_code=404, detail="No matching plancode found for the given inputs.")
 
-    # Derive the dalecode from the resolved row
-    from app.services.csv_loader import FIELDS
     dalecode = "".join(str(inputs.get(f, "")) for f in FIELDS)
-
     return {"plancode": plancode, "dalecode": dalecode, "inputs": inputs}
 
 
 # ── Dalecode lookup ───────────────────────────────────────────────────────────
 
-@router.post("/api/dalecode-lookup", tags=["Resolver"])
-async def dalecode_lookup(request: Request):
-    """Deconstruct a dalecode into field values and resolve back to a plancode."""
-    body = await request.json()
-    dalecode = str(body.get("dalecode", "")).strip()
+@router.post(
+    "/api/dalecode-lookup",
+    response_model=DalecodeLookupResponse,
+    tags=["Resolver"],
+    summary="Decode a dalecode back to field values and plancode",
+)
+def dalecode_lookup(req: DalecodeLookupRequest):
+    """
+    Submit a **dalecode** string to deconstruct it into its constituent field
+    values (with human-readable labels) and resolve it back to a plancode.
 
-    if not dalecode:
-        raise HTTPException(status_code=400, detail="dalecode is required.")
+    The dalecode is the concatenation of all field code values with no separators,
+    e.g. `NMORIY1a2a3a4a5a6a7a8a9a`.
+    """
+    dalecode = req.dalecode.strip()
 
     decoded = csv_loader.decode_dalecode(dalecode)
     if decoded is None:
@@ -79,24 +127,30 @@ async def dalecode_lookup(request: Request):
     inputs = {item["field"]: item["value"] for item in decoded}
     plancode = csv_loader.resolve(inputs)
 
-    return {
-        "dalecode": dalecode,
-        "plancode": plancode or "",
-        "fields": decoded,
-    }
+    return {"dalecode": dalecode, "plancode": plancode or "", "fields": decoded}
 
 
 # ── Read endpoints ────────────────────────────────────────────────────────────
 
-@router.get("/api/field-values", tags=["Resolver"])
+@router.get(
+    "/api/field-values",
+    tags=["Resolver"],
+    summary="Get valid options per field",
+)
 def get_field_values():
-    """Return valid options per field: {field: [{value, label}, ...]}"""
+    """
+    Returns all valid option values for each field, including human-readable labels.
+
+    Response shape: `{field: [{value, label}, ...]}`
+
+    Use `value` when submitting to `/api/resolve`; display `label` in UI dropdowns.
+    """
     return csv_loader.get_field_values()
 
 
 @router.get("/api/mappings", tags=["Admin"])
 def get_mappings():
-    """Return all loaded plancode mappings."""
+    """Return all loaded plancode mappings (plancode, dalecode, and all field values)."""
     return {
         **csv_loader.get_load_info(),
         "version_info": csv_loader.get_version_info(),

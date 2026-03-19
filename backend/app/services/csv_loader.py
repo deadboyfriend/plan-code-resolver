@@ -152,6 +152,44 @@ def resolve(inputs: dict) -> str | None:
     return _get_state()["lookup"].get(key)
 
 
+def decode_dalecode(dalecode: str) -> list[dict] | None:
+    """
+    Deconstruct a dalecode string back into its constituent field values.
+
+    Uses greedy longest-match per field (handles variable-length underwriting codes).
+    Returns a list of {field, value, label} dicts in FIELDS order, or None if the
+    dalecode cannot be fully matched against the known values.
+    """
+    field_values = _get_state()["field_values"]
+    decoded = []
+    pos = 0
+
+    for field in FIELDS:
+        options = field_values.get(field, [])
+        if not options:
+            return None
+
+        # Sort by value length descending so longer codes are tried first
+        matched = None
+        for opt in sorted(options, key=lambda x: len(x["value"]), reverse=True):
+            val = opt["value"]
+            if dalecode[pos: pos + len(val)] == val:
+                matched = opt
+                pos += len(val)
+                break
+
+        if matched is None:
+            return None
+
+        decoded.append({"field": field, "value": matched["value"], "label": matched["label"]})
+
+    # The entire dalecode must be consumed — no trailing characters allowed
+    if pos != len(dalecode):
+        return None
+
+    return decoded
+
+
 def get_all_rows() -> list[dict]:
     return _get_state()["all_rows"]
 

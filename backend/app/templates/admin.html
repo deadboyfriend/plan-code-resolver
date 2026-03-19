@@ -376,6 +376,105 @@
 
     .loading { color: var(--ion-neutral-700); font-size: 15px; padding: 24px; text-align: center; }
     .empty   { color: var(--ion-neutral-700); font-size: 15px; padding: 24px; text-align: center; }
+
+    /* ── Dalecode input row ── */
+    .dalecode-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .dalecode-input-row input[type="text"] {
+      flex: 1;
+      min-width: 260px;
+      padding: 10px 14px;
+      border: 1px solid var(--ion-neutral-700);
+      border-radius: 2px;
+      font-size: 15px;
+      font-family: monospace;
+      background: var(--ion-neutral-100);
+      letter-spacing: .04em;
+    }
+    .dalecode-input-row input:focus {
+      outline: 2px solid var(--ion-blue-500);
+      outline-offset: 2px;
+      border-color: var(--ion-blue-500);
+    }
+
+    /* ── Decode result ── */
+    .decode-plancode-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--ion-blue-800);
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .decode-plancode-row .dp-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ion-yellow-500);
+    }
+    .decode-plancode-row .dp-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--ion-neutral-100);
+      letter-spacing: .06em;
+    }
+    .decode-plancode-row .dp-dalecode {
+      font-size: 13px;
+      color: rgba(255,255,255,.55);
+      font-family: monospace;
+      margin-left: auto;
+    }
+
+    .decode-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 900px) { .decode-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) { .decode-grid { grid-template-columns: 1fr; } }
+
+    .decode-tile {
+      background: var(--ion-neutral-100);
+      border: 1px solid var(--ion-neutral-300);
+      border-radius: 4px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .decode-tile::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--ion-yellow-500);
+    }
+    .decode-tile .dt-field {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--ion-neutral-700);
+      margin-bottom: 6px;
+    }
+    .decode-tile .dt-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ion-blue-800);
+      line-height: 1.2;
+    }
+    .decode-tile .dt-value {
+      font-size: 11px;
+      color: var(--ion-neutral-700);
+      font-family: monospace;
+      margin-top: 3px;
+    }
   </style>
 </head>
 <body>
@@ -390,6 +489,7 @@
 <div class="tab-strip">
   <div class="tab active" data-tab="status">Status &amp; Upload</div>
   <div class="tab" data-tab="lookup">Lookup Plancode</div>
+  <div class="tab" data-tab="dalecode">Dalecode Lookup</div>
   <div class="tab" data-tab="browse">Browse Mappings</div>
 </div>
 
@@ -530,6 +630,31 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ── Dalecode Lookup tab ─────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-dalecode">
+    <div class="card">
+      <div class="card-title">Decode a Dalecode</div>
+      <form id="dalecode-form">
+        <div class="dalecode-input-row">
+          <input type="text" id="dalecode-input" placeholder="e.g. MHDY1a2a3b4a5b6d7a8a9d" autocomplete="off" spellcheck="false" />
+          <button type="submit" class="btn-primary" id="dalecode-btn">Decode</button>
+          <button type="button" class="btn-secondary" id="dalecode-clear-btn">Clear</button>
+        </div>
+      </form>
+
+      <div id="dalecode-error" class="upload-feedback" style="margin-bottom:16px"></div>
+
+      <div id="dalecode-result" style="display:none">
+        <div class="decode-plancode-row">
+          <span class="dp-label">Plancode</span>
+          <span class="dp-value" id="dc-plancode"></span>
+          <span class="dp-dalecode" id="dc-dalecode-echo"></span>
+        </div>
+        <div class="decode-grid" id="dc-fields-grid"></div>
+      </div>
     </div>
   </div>
 
@@ -811,6 +936,81 @@
       btn.disabled = false;
       btn.textContent = 'Upload';
     }
+  });
+
+  // ── Dalecode lookup ──────────────────────────────────────────────────────
+  const FIELD_LABELS = {
+    underwriting:    'Underwriting',
+    corecover:       'Core Cover',
+    psych:           'Psych Cover',
+    gpreferred:      'GP Preferred',
+    hospital_list:   'Hospital List',
+    opticaldental:   'Optical & Dental',
+    '6week':         '6-Week Wait',
+    excess:          'Excess',
+    benefitreduction:'Benefit Reduction',
+    oplimit:         'OP Limit',
+    islands:         'Islands',
+  };
+
+  document.getElementById('dalecode-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn      = document.getElementById('dalecode-btn');
+    const errorEl  = document.getElementById('dalecode-error');
+    const resultEl = document.getElementById('dalecode-result');
+    const dalecode = document.getElementById('dalecode-input').value.trim();
+
+    errorEl.className = 'upload-feedback';
+    resultEl.style.display = 'none';
+
+    if (!dalecode) {
+      errorEl.className = 'upload-feedback error';
+      errorEl.textContent = 'Please enter a dalecode.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Decoding…';
+
+    try {
+      const res  = await fetch('/api/dalecode-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dalecode }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorEl.className = 'upload-feedback error';
+        errorEl.textContent = data.detail || 'Decode failed.';
+        return;
+      }
+
+      document.getElementById('dc-plancode').textContent     = data.plancode || '—';
+      document.getElementById('dc-dalecode-echo').textContent = data.dalecode;
+
+      const grid = document.getElementById('dc-fields-grid');
+      grid.innerHTML = (data.fields || []).map(f => `
+        <div class="decode-tile">
+          <div class="dt-field">${esc(FIELD_LABELS[f.field] || f.field)}</div>
+          <div class="dt-label">${esc(f.label)}</div>
+          <div class="dt-value">${esc(f.value)}</div>
+        </div>`).join('');
+
+      resultEl.style.display = 'block';
+    } catch (err) {
+      errorEl.className = 'upload-feedback error';
+      errorEl.textContent = 'Request failed: ' + err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Decode';
+    }
+  });
+
+  document.getElementById('dalecode-clear-btn').addEventListener('click', function() {
+    document.getElementById('dalecode-input').value = '';
+    document.getElementById('dalecode-error').className = 'upload-feedback';
+    document.getElementById('dalecode-result').style.display = 'none';
   });
 
   // ── Utilities ─────────────────────────────────────────────────────────────

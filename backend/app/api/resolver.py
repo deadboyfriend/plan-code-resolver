@@ -58,6 +58,34 @@ async def resolve_plancode(request: Request):
     return {"plancode": plancode, "dalecode": dalecode, "inputs": inputs}
 
 
+# ── Dalecode lookup ───────────────────────────────────────────────────────────
+
+@router.post("/api/dalecode-lookup", tags=["Resolver"])
+async def dalecode_lookup(request: Request):
+    """Deconstruct a dalecode into field values and resolve back to a plancode."""
+    body = await request.json()
+    dalecode = str(body.get("dalecode", "")).strip()
+
+    if not dalecode:
+        raise HTTPException(status_code=400, detail="dalecode is required.")
+
+    decoded = csv_loader.decode_dalecode(dalecode)
+    if decoded is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Unable to decode — dalecode does not match any known field value sequence.",
+        )
+
+    inputs = {item["field"]: item["value"] for item in decoded}
+    plancode = csv_loader.resolve(inputs)
+
+    return {
+        "dalecode": dalecode,
+        "plancode": plancode or "",
+        "fields": decoded,
+    }
+
+
 # ── Read endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/api/field-values", tags=["Resolver"])

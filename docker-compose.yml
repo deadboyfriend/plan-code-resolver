@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: plan-code-resolver
     ports:
-      - "${PORT:-8000}:8000"
+      - "${PORT:-8092}:8000"
     volumes:
       - ./backend:/app
       - ./data:/app/data

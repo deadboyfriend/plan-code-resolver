@@ -701,9 +701,13 @@
   const FIELDS = ["plancode","dalecode","underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","sixweek","excess","benefitreduction","oplimit","islands"];
   const LOOKUP_FIELDS = ["underwriting","corecover","psych","gpreferred","hospital_list","opticaldental","sixweek","excess","benefitreduction","oplimit","islands"];
 
-  let allRows = [];
-  let filteredRows = [];
-  let currentPage = 1;
+  let currentPage       = 1;
+  let currentFilter     = '';
+  let currentTotal      = 0;
+  let currentTotalPages = 1;
+  let valueToLabel      = {};  // {field: {codeValue: humanLabel}}
+  let _fetchController  = null;
+  let _filterTimer      = null;
 
   // ── Tab switching ─────────────────────────────────────────────────────────
   document.querySelectorAll('.tab').forEach(tab => {
@@ -749,6 +753,12 @@
       if (!res.ok) return;
       const data = await res.json();
       LOOKUP_FIELDS.forEach(field => {
+        valueToLabel[field] = {};
+        (data[field] || []).forEach(item => {
+          valueToLabel[field][item.value] = item.label || item.value;
+        });
+      });
+      LOOKUP_FIELDS.forEach(field => {
         const sel = document.getElementById('sel-' + field);
         if (!sel) return;
         const current = sel.value;
@@ -773,49 +783,57 @@
   }
 
   // ── Browse table ──────────────────────────────────────────────────────────
-  async function loadMappings() {
+  async function fetchMappings(page = 1, filter = '') {
+    if (_fetchController) _fetchController.abort();
+    _fetchController = new AbortController();
+
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '<tr><td colspan="13" class="loading">Loading…</td></tr>';
+
+    const params = new URLSearchParams({ page, page_size: PAGE_SIZE });
+    if (filter) params.set('filter', filter);
+
     try {
-      const res = await fetch('/api/mappings');
+      const res  = await fetch('/api/mappings?' + params, { signal: _fetchController.signal });
       const data = await res.json();
-      allRows = data.rows || [];
-      filteredRows = allRows;
-      currentPage = 1;
-      renderTable();
-    } catch (e) {
-      document.getElementById('table-body').innerHTML =
-        `<tr><td colspan="11" class="empty">Failed to load mappings: ${e.message}</td></tr>`;
+      currentPage       = data.page;
+      currentTotalPages = data.total_pages;
+      currentTotal      = data.total;
+      renderTable(data.rows);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        tbody.innerHTML = `<tr><td colspan="13" class="empty">Failed to load: ${err.message}</td></tr>`;
+      }
     }
   }
 
   document.getElementById('filter-input').addEventListener('input', function () {
-    const q = this.value.toLowerCase();
-    filteredRows = q
-      ? allRows.filter(r => FIELDS.some(f => (r[f] || '').toLowerCase().includes(q)))
-      : allRows;
-    currentPage = 1;
-    renderTable();
+    currentFilter = this.value.trim();
+    clearTimeout(_filterTimer);
+    _filterTimer = setTimeout(() => fetchMappings(1, currentFilter), 300);
   });
 
-  function renderTable() {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const page  = filteredRows.slice(start, start + PAGE_SIZE);
+  function renderTable(rows) {
     const tbody = document.getElementById('table-body');
 
-    if (page.length === 0) {
+    if (!rows || rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="13" class="empty">No matching rows.</td></tr>';
     } else {
-      tbody.innerHTML = page.map(row => `
+      tbody.innerHTML = rows.map(row => `
         <tr>
           <td class="plancode-cell">${esc(row.plancode)}</td>
           <td style="font-family:monospace;font-size:12px;color:var(--ion-neutral-700)">${esc(row.dalecode || '')}</td>
-          ${LOOKUP_FIELDS.map(f => `<td>${esc(row[f] || '')}</td>`).join('')}
+          ${LOOKUP_FIELDS.map(f => {
+            const raw = row[f] || '';
+            const lbl = (valueToLabel[f] && valueToLabel[f][raw]) || raw;
+            return `<td>${esc(lbl)}</td>`;
+          }).join('')}
         </tr>`).join('');
     }
 
-    const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
     document.getElementById('page-info').textContent =
-      `${filteredRows.length.toLocaleString()} rows — page ${currentPage} of ${totalPages || 1}`;
-    renderPagination(totalPages);
+      `${currentTotal.toLocaleString()} rows — page ${currentPage} of ${currentTotalPages}`;
+    renderPagination(currentTotalPages);
   }
 
   function renderPagination(totalPages) {
@@ -840,8 +858,7 @@
   }
 
   function goPage(p) {
-    currentPage = p;
-    renderTable();
+    fetchMappings(p, currentFilter);
     document.getElementById('tab-browse').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -925,7 +942,7 @@
         fileInput.value = '';
         await refreshStatus();
         await loadFieldValues();
-        await loadMappings();
+        await fetchMappings();
       } else {
         feedback.className = 'upload-feedback error';
         feedback.textContent = data.detail || 'Upload failed.';
@@ -1023,7 +1040,7 @@
   // ── Init ──────────────────────────────────────────────────────────────────
   refreshStatus();
   loadFieldValues();
-  loadMappings();
+  fetchMappings();
 </script>
 </body>
 </html>

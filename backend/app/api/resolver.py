@@ -1,7 +1,7 @@
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -147,13 +147,51 @@ def get_field_values():
     return csv_loader.get_field_values()
 
 
+def _filter_rows(rows: list, query: str, field_values: dict) -> list:
+    """Filter rows by substring match against raw code values and human-readable labels."""
+    if not query:
+        return rows
+    q = query.lower()
+    vtl = {
+        field: {item["value"]: item["label"] for item in items}
+        for field, items in field_values.items()
+    }
+    result = []
+    for row in rows:
+        for field, val in row.items():
+            if q in (val or "").lower():
+                result.append(row)
+                break
+            if q in vtl.get(field, {}).get(val, "").lower():
+                result.append(row)
+                break
+    return result
+
+
 @router.get("/api/mappings", tags=["Admin"])
-def get_mappings():
-    """Return all loaded plancode mappings (plancode, dalecode, and all field values)."""
+def get_mappings(
+    filter: str = Query(default="", description="Substring search across field values and labels"),
+    page: int = Query(default=1, ge=1, description="1-based page number"),
+    page_size: int = Query(default=50, ge=1, le=500, description="Rows per page"),
+):
+    """Return plancode mappings with optional server-side filtering and pagination."""
+    all_rows = csv_loader.get_all_rows()
+    field_values = csv_loader.get_field_values()
+    filtered = _filter_rows(all_rows, filter.strip(), field_values)
+
+    total = len(filtered)
+    total_pages = max(1, -(-total // page_size))  # ceiling division
+    start = (page - 1) * page_size
+    page_rows = filtered[start: start + page_size]
+
     return {
         **csv_loader.get_load_info(),
         "version_info": csv_loader.get_version_info(),
-        "rows": csv_loader.get_all_rows(),
+        "rows": page_rows,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
     }
 
 

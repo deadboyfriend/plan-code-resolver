@@ -24,7 +24,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt pytest httpx
+        run: |
+          pip install --upgrade "wheel>=0.46.2" "jaraco.context>=6.1.0"
+          pip install -r backend/requirements.txt
 
       - name: Run tests
         run: pytest backend/tests/ -v
@@ -35,6 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Upgrade pre-installed build tools to patched versions
+        run: pip install --upgrade "wheel>=0.46.2" "jaraco.context>=6.1.0"
 
       - name: Scan dependencies for CVEs
         uses: aquasecurity/trivy-action@master

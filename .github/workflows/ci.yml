@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── 1. Run tests ──────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt pytest httpx
+
+      - name: Run tests
+        run: pytest backend/tests/ -v
+
+  # ── 2. Trivy — scan Python dependencies (filesystem) ─────────────────────
+  trivy-fs:
+    name: Trivy (filesystem)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan dependencies for CVEs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: backend/requirements.txt
+          format: table
+          exit-code: "1"          # fail the job on HIGH/CRITICAL findings
+          severity: HIGH,CRITICAL
+
+  # ── 3. Build Docker image, scan it, push to ghcr.io ──────────────────────
+  build-and-scan:
+    name: Build, Scan & Push
+    runs-on: ubuntu-latest
+    needs: [test, trivy-fs]       # only runs if both jobs above pass
+    permissions:
+      contents: read
+      packages: write             # needed to push to ghcr.io
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            -t ghcr.io/${{ github.repository }}:latest \
+            ./backend
+
+      - name: Trivy — scan Docker image for CVEs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to ghcr.io
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}:latest

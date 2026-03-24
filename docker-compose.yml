@@ -1,5 +1,6 @@
 services:
   plan-code-resolver:
+    image: ghcr.io/deadboyfriend/plan-code-resolver:latest
     build:
       context: ./backend
       dockerfile: Dockerfile

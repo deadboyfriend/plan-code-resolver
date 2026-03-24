@@ -310,7 +310,50 @@
       color: var(--ion-blue-800);
     }
     .result-box.error .result-plancode { font-size: 24px; color: var(--ion-pink-text); }
+    .result-box.warning {
+      background: #FFF8E1;
+      border: 1px solid #FFD54F;
+      color: #7B4F00;
+      display: block;
+    }
+    .result-box.warning .result-plancode { font-size: 24px; color: #7B4F00; }
     .result-sub { font-size: 13px; margin-top: 2px; opacity: .85; }
+
+    /* ── Create plancode dialog ── */
+    dialog#create-confirm-dialog {
+      border: none;
+      border-radius: 6px;
+      padding: 0;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    dialog#create-confirm-dialog::backdrop { background: rgba(0,0,0,.45); }
+    .dialog-header {
+      background: var(--ion-blue-800);
+      color: var(--ion-neutral-100);
+      padding: 16px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px 6px 0 0;
+    }
+    .dialog-body { padding: 20px 24px; }
+    .dialog-summary { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 14px; }
+    .dialog-summary td { padding: 5px 8px; border-bottom: 1px solid var(--ion-neutral-300); }
+    .dialog-summary td:first-child { font-weight: 600; color: var(--ion-neutral-700); width: 40%; }
+    .dialog-dalecode { font-family: monospace; font-size: 13px; color: var(--ion-neutral-700); margin-bottom: 16px; }
+    .dialog-question { font-weight: 600; margin-bottom: 20px; color: var(--ion-neutral-900); }
+    .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 24px; border-top: 1px solid var(--ion-neutral-300); }
+    .create-success-banner {
+      background: var(--ion-green-200);
+      border: 1px solid #9BD7DD;
+      color: var(--ion-green-text);
+      padding: 14px 18px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+      margin-top: 16px;
+    }
 
     /* ── Table ── */
     .table-controls {
@@ -490,6 +533,7 @@
   <div class="tab active" data-tab="status">Status &amp; Upload</div>
   <div class="tab" data-tab="lookup">Lookup Plancode</div>
   <div class="tab" data-tab="dalecode">Dalecode Lookup</div>
+  <div class="tab" data-tab="create">Create Plancode</div>
   <div class="tab" data-tab="browse">Browse Mappings</div>
 </div>
 
@@ -658,6 +702,81 @@
     </div>
   </div>
 
+  <!-- ── Create Plancode tab ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-create">
+    <div class="card">
+      <div class="card-title">Select Option Values</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Underwriting</label>
+          <select id="create-sel-underwriting"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Core Cover</label>
+          <select id="create-sel-corecover"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Psych Cover</label>
+          <select id="create-sel-psych"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>GP Preferred</label>
+          <select id="create-sel-gpreferred"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Hospital List</label>
+          <select id="create-sel-hospital_list"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Optical &amp; Dental</label>
+          <select id="create-sel-opticaldental"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>6-Week Wait</label>
+          <select id="create-sel-sixweek"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Excess</label>
+          <select id="create-sel-excess"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Benefit Reduction</label>
+          <select id="create-sel-benefitreduction"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>OP Limit</label>
+          <select id="create-sel-oplimit"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Islands</label>
+          <select id="create-sel-islands"><option value="">— select —</option></select>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px">
+        <button type="button" class="btn-primary" id="create-check-btn">Check Combination</button>
+        <button type="button" class="btn-secondary" id="create-clear-btn">Clear</button>
+      </div>
+
+      <div class="result-box" id="create-result-box">
+        <div>
+          <div class="result-plancode" id="create-result-plancode"></div>
+          <div class="result-sub" id="create-result-sub"></div>
+        </div>
+        <div id="create-result-dalecode-wrap" style="margin-left:24px;border-left:2px solid #9BD7DD;padding-left:20px;display:none">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ion-neutral-700);margin-bottom:4px">Dalecode</div>
+          <div style="font-size:15px;font-weight:600;font-family:monospace;color:var(--ion-blue-800)" id="create-result-dalecode"></div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;display:none" id="create-submit-row">
+        <button type="button" class="btn-primary" id="create-submit-btn">Request Creation</button>
+      </div>
+
+      <div class="create-success-banner" id="create-success-banner"></div>
+    </div>
+  </div>
+
   <!-- ── Browse Mappings tab ───────────────────────────────────────────────── -->
   <div class="tab-panel" id="tab-browse">
     <div class="card">
@@ -695,6 +814,19 @@
   </div>
 
 </div>
+
+<dialog id="create-confirm-dialog">
+  <div class="dialog-header">Confirm Plancode Request</div>
+  <div class="dialog-body">
+    <table class="dialog-summary" id="dialog-summary-table"></table>
+    <div class="dialog-dalecode" id="dialog-dalecode-line"></div>
+    <div class="dialog-question">Are you sure you want to request this new plancode?</div>
+  </div>
+  <div class="dialog-footer">
+    <button type="button" class="btn-secondary" id="dialog-cancel-btn">Cancel</button>
+    <button type="button" class="btn-primary" id="dialog-confirm-btn">Confirm</button>
+  </div>
+</dialog>
 
 <script>
   const PAGE_SIZE = 50;
@@ -773,11 +905,26 @@
         const currentStillValid = items.some(i => i.value === current);
         if (currentStillValid) sel.value = current;
       });
+      // Also populate Create Plancode selects
+      LOOKUP_FIELDS.forEach(field => {
+        const csel = document.getElementById('create-sel-' + field);
+        if (!csel) return;
+        const items = data[field] || [];
+        csel.innerHTML = '<option value="">— select —</option>';
+        items.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.value;
+          opt.textContent = item.label || item.value;
+          csel.appendChild(opt);
+        });
+      });
     } catch (e) {
       console.warn('Failed to load field values:', e.message);
       LOOKUP_FIELDS.forEach(field => {
         const sel = document.getElementById('sel-' + field);
         if (sel) sel.innerHTML = '<option value="">— unavailable —</option>';
+        const csel = document.getElementById('create-sel-' + field);
+        if (csel) csel.innerHTML = '<option value="">— unavailable —</option>';
       });
     }
   }
@@ -1036,6 +1183,130 @@
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+
+  // ── Create Plancode ───────────────────────────────────────────────────────
+  let createCheckResult = null; // null | 'duplicate' | 'new'
+
+  function getCreateValues() {
+    const vals = {};
+    LOOKUP_FIELDS.forEach(f => {
+      vals[f] = document.getElementById('create-sel-' + f)?.value || '';
+    });
+    return vals;
+  }
+
+  function resetCreateForm() {
+    LOOKUP_FIELDS.forEach(f => {
+      const sel = document.getElementById('create-sel-' + f);
+      if (sel) sel.value = '';
+    });
+    document.getElementById('create-result-box').className = 'result-box';
+    document.getElementById('create-result-dalecode-wrap').style.display = 'none';
+    document.getElementById('create-submit-row').style.display = 'none';
+    document.getElementById('create-success-banner').style.display = 'none';
+    createCheckResult = null;
+  }
+
+  document.getElementById('create-check-btn').addEventListener('click', async function () {
+    const vals = getCreateValues();
+    const missing = LOOKUP_FIELDS.filter(f => !vals[f]);
+    const box  = document.getElementById('create-result-box');
+    const planEl = document.getElementById('create-result-plancode');
+    const subEl  = document.getElementById('create-result-sub');
+    const dcWrap = document.getElementById('create-result-dalecode-wrap');
+    const submitRow = document.getElementById('create-submit-row');
+    const banner = document.getElementById('create-success-banner');
+
+    banner.style.display = 'none';
+    createCheckResult = null;
+    submitRow.style.display = 'none';
+    dcWrap.style.display = 'none';
+
+    if (missing.length) {
+      box.className = 'result-box error';
+      planEl.textContent = '—';
+      subEl.textContent = 'Please select a value for: ' + missing.map(f => FIELD_LABELS[f]).join(', ');
+      return;
+    }
+
+    this.disabled = true;
+    this.textContent = 'Checking…';
+    box.className = 'result-box';
+
+    try {
+      const res  = await fetch('/api/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vals),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        // Combination already exists
+        createCheckResult = 'duplicate';
+        box.className = 'result-box warning';
+        planEl.textContent = data.plancode;
+        subEl.textContent = 'This combination already exists — shown above';
+        document.getElementById('create-result-dalecode').textContent = data.dalecode || '';
+        dcWrap.style.display = 'block';
+        submitRow.style.display = 'none';
+      } else if (res.status === 404) {
+        // New combination — ready to request
+        createCheckResult = 'new';
+        box.className = 'result-box success';
+        planEl.textContent = '✓ New';
+        subEl.textContent = 'This combination does not exist yet — you may request its creation';
+        dcWrap.style.display = 'none';
+        submitRow.style.display = 'flex';
+      } else {
+        box.className = 'result-box error';
+        planEl.textContent = '—';
+        subEl.textContent = (typeof data.detail === 'string' ? data.detail : null) || 'Check failed.';
+      }
+    } catch (err) {
+      box.className = 'result-box error';
+      planEl.textContent = '—';
+      subEl.textContent = 'Request failed: ' + err.message;
+    } finally {
+      this.disabled = false;
+      this.textContent = 'Check Combination';
+    }
+  });
+
+  document.getElementById('create-clear-btn').addEventListener('click', resetCreateForm);
+
+  document.getElementById('create-submit-btn').addEventListener('click', function () {
+    if (createCheckResult !== 'new') return;
+    const vals = getCreateValues();
+    const dalecode = LOOKUP_FIELDS.map(f => vals[f]).join('');
+
+    // Build summary table rows
+    const rows = LOOKUP_FIELDS.map(f => {
+      const label = valueToLabel[f]?.[vals[f]] || vals[f];
+      return `<tr><td>${esc(FIELD_LABELS[f])}</td><td>${esc(label)}</td></tr>`;
+    }).join('');
+    document.getElementById('dialog-summary-table').innerHTML = rows;
+    document.getElementById('dialog-dalecode-line').textContent = 'Dalecode: ' + dalecode;
+
+    document.getElementById('create-confirm-dialog').showModal();
+  });
+
+  document.getElementById('dialog-cancel-btn').addEventListener('click', function () {
+    document.getElementById('create-confirm-dialog').close();
+  });
+
+  document.getElementById('dialog-confirm-btn').addEventListener('click', function () {
+    document.getElementById('create-confirm-dialog').close();
+
+    const ref = 'REQ-' + new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+    const banner = document.getElementById('create-success-banner');
+    banner.textContent = '✓ Request noted — a team member will review and create this plancode. Reference: ' + ref;
+    banner.style.display = 'block';
+
+    resetCreateForm();
+    // Keep banner visible after reset
+    banner.style.display = 'block';
+  });
 
   // ── Init ──────────────────────────────────────────────────────────────────
   refreshStatus();

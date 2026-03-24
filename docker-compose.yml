@@ -7,7 +7,6 @@ services:
     ports:
       - "${PORT:-8092}:8000"
     volumes:
-      - ./backend:/app
       - ./data:/app/data
     environment:
       DATA_FILE: /app/data/plancode_mappings.xlsx

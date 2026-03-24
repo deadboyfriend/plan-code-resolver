@@ -1039,8 +1039,7 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   refreshStatus();
-  loadFieldValues();
-  fetchMappings();
+  loadFieldValues().then(() => fetchMappings());
 </script>
 </body>
 </html>

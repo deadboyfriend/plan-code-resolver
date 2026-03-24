@@ -1,0 +1,7 @@
+# CVE-2026-24049: wheel - privilege escalation via malicious wheel file
+# wheel is a packaging build tool; our app does not process wheel files at runtime.
+CVE-2026-24049
+
+# CVE-2026-23949: jaraco.context - path traversal via malicious tar archives
+# jaraco.context is a setuptools build dependency; our app does not process tar archives at runtime.
+CVE-2026-23949
